@@ -12,16 +12,13 @@
     <div class="row">
       <input id="name" placeholder="Your name" maxlength="16" />
     </div>
-
     <div class="row">
       <button id="create">Create Room</button>
     </div>
-
     <div class="row">
       <input id="code" placeholder="Room code (ABCD)" maxlength="8" />
       <button id="join">Join Room</button>
     </div>
-
     <div id="status" class="status">Connecting…</div>
   </div>
 
@@ -34,6 +31,13 @@
     </div>
 
     <div class="pokerTable">
+      <div class="infoRow">
+        <div class="pill">Pot: <span id="pot">0</span></div>
+        <div class="pill">Street: <span id="street">lobby</span></div>
+        <div class="pill">Current Bet: <span id="currentBet">0</span></div>
+        <div class="pill">To Act: <span id="toAct">-</span></div>
+      </div>
+
       <div class="community" id="community"></div>
 
       <div class="seats">
@@ -46,15 +50,28 @@
           <div class="label">Your Hand</div>
           <div class="hand" id="myHand"></div>
 
+          <div class="actions" id="actions" style="display:none;">
+            <button id="btnFold" class="danger">Fold</button>
+            <button id="btnCheck">Check</button>
+            <button id="btnCall">Call</button>
+
+            <div class="raiseBox">
+              <input id="raiseTo" type="number" min="0" step="10" />
+              <button id="btnRaise">Raise To</button>
+            </div>
+          </div>
+
           <div class="hostControls" id="hostControls" style="display:none;">
             <button id="startGame">Start Game</button>
-            <button id="dealCommunity">Deal Flop/Turn/River</button>
+            <button id="nextHand">Next Hand</button>
           </div>
+
+          <div class="note" id="note"></div>
         </div>
       </div>
     </div>
 
-    <div class="hint">Tip: Host starts, then click Deal to reveal community cards.</div>
+    <div class="hint">No real money — just stacks for fun.</div>
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
