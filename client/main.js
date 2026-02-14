@@ -1,19 +1,27 @@
 const SERVER_URL = "https://poker-online-l5i4.onrender.com";
 
+const lobbyCard = document.getElementById("lobbyCard");
+const tableWrap = document.getElementById("tableWrap");
+
 const statusEl = document.getElementById("status");
-const roomCard = document.getElementById("roomCard");
 const roomTitle = document.getElementById("roomTitle");
 const hostTag = document.getElementById("hostTag");
 const playersEl = document.getElementById("players");
+const communityEl = document.getElementById("community");
+const myHandEl = document.getElementById("myHand");
+
+const hostControls = document.getElementById("hostControls");
+const startGameBtn = document.getElementById("startGame");
+const dealCommunityBtn = document.getElementById("dealCommunity");
 
 const nameEl = document.getElementById("name");
 const codeEl = document.getElementById("code");
-
 const createBtn = document.getElementById("create");
 const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
 
 let myId = null;
+let currentRoom = null;
 
 const socket = io(SERVER_URL, {
   transports: ["websocket", "polling"]
@@ -29,15 +37,38 @@ socket.on("connect_error", (err) => {
 });
 
 socket.on("room:update", (room) => {
+  currentRoom = room;
   showRoom(room);
 });
 
+function cardToText(c) {
+  // "AS" -> A♠
+  const rank = c[0];
+  const suit = c[1];
+  const suitMap = { S:"♠", H:"♥", D:"♦", C:"♣" };
+  return rank + (suitMap[suit] || suit);
+}
+
+function isRedSuit(c) {
+  return c.endsWith("H") || c.endsWith("D");
+}
+
+function makeCardDiv(card) {
+  const d = document.createElement("div");
+  d.className = "cardUI" + (isRedSuit(card) ? " red" : "");
+  d.textContent = cardToText(card);
+  return d;
+}
+
 function showRoom(room) {
-  roomCard.style.display = "block";
+  lobbyCard.style.display = "none";
+  tableWrap.style.display = "block";
+
   roomTitle.textContent = `Room: ${room.code}`;
+  const amHost = room.hostId === myId;
+  hostTag.textContent = amHost ? "You are the host 👑" : "Waiting for host…";
 
-  hostTag.textContent = room.hostId === myId ? "You are the host 👑" : "Host is another player";
-
+  // players
   playersEl.innerHTML = "";
   room.players.forEach(p => {
     const li = document.createElement("li");
@@ -45,7 +76,20 @@ function showRoom(room) {
     playersEl.appendChild(li);
   });
 
-  statusEl.textContent = "✅ In room. Share the code with friends.";
+  // host controls
+  hostControls.style.display = amHost ? "flex" : "none";
+
+  // community cards
+  communityEl.innerHTML = "";
+  room.game.community.forEach(c => communityEl.appendChild(makeCardDiv(c)));
+
+  // my hole cards
+  myHandEl.innerHTML = "";
+  if (room.game.started) {
+    room.game.myHole.forEach(c => myHandEl.appendChild(makeCardDiv(c)));
+  } else {
+    myHandEl.textContent = "(Start the game to get cards)";
+  }
 }
 
 createBtn.addEventListener("click", () => {
@@ -68,10 +112,26 @@ joinBtn.addEventListener("click", () => {
 });
 
 leaveBtn.addEventListener("click", () => {
-  socket.emit("room:leave", (res) => {
-    roomCard.style.display = "none";
+  socket.emit("room:leave", () => {
+    currentRoom = null;
+    tableWrap.style.display = "none";
+    lobbyCard.style.display = "block";
     statusEl.textContent = "Left room. Create or join another.";
     playersEl.innerHTML = "";
+    communityEl.innerHTML = "";
+    myHandEl.innerHTML = "";
     codeEl.value = "";
+  });
+});
+
+startGameBtn.addEventListener("click", () => {
+  socket.emit("game:start", (res) => {
+    if (!res?.ok) alert(res?.error || "Could not start game");
+  });
+});
+
+dealCommunityBtn.addEventListener("click", () => {
+  socket.emit("game:dealCommunity", (res) => {
+    if (!res?.ok) alert(res?.error || "Could not deal");
   });
 });
