@@ -1,2 +1,14 @@
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log("Server listening on", PORT));
+{
+  "name": "poker-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "cors": "^2.8.5"
+  }
+}
