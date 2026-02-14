@@ -7,12 +7,26 @@ const statusEl = document.getElementById("status");
 const roomTitle = document.getElementById("roomTitle");
 const hostTag = document.getElementById("hostTag");
 const playersEl = document.getElementById("players");
+
+const potEl = document.getElementById("pot");
+const streetEl = document.getElementById("street");
+const currentBetEl = document.getElementById("currentBet");
+const toActEl = document.getElementById("toAct");
+
 const communityEl = document.getElementById("community");
 const myHandEl = document.getElementById("myHand");
 
+const actionsEl = document.getElementById("actions");
+const btnFold = document.getElementById("btnFold");
+const btnCheck = document.getElementById("btnCheck");
+const btnCall = document.getElementById("btnCall");
+const btnRaise = document.getElementById("btnRaise");
+const raiseToEl = document.getElementById("raiseTo");
+const noteEl = document.getElementById("note");
+
 const hostControls = document.getElementById("hostControls");
 const startGameBtn = document.getElementById("startGame");
-const dealCommunityBtn = document.getElementById("dealCommunity");
+const nextHandBtn = document.getElementById("nextHand");
 
 const nameEl = document.getElementById("name");
 const codeEl = document.getElementById("code");
@@ -21,11 +35,9 @@ const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
 
 let myId = null;
-let currentRoom = null;
+let room = null;
 
-const socket = io(SERVER_URL, {
-  transports: ["websocket", "polling"]
-});
+const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
 
 socket.on("connect", () => {
   myId = socket.id;
@@ -36,23 +48,18 @@ socket.on("connect_error", (err) => {
   statusEl.textContent = "❌ Connect error: " + err.message;
 });
 
-socket.on("room:update", (room) => {
-  currentRoom = room;
-  showRoom(room);
+socket.on("room:update", (r) => {
+  room = r;
+  render();
 });
 
 function cardToText(c) {
-  // "AS" -> A♠
   const rank = c[0];
   const suit = c[1];
   const suitMap = { S:"♠", H:"♥", D:"♦", C:"♣" };
   return rank + (suitMap[suit] || suit);
 }
-
-function isRedSuit(c) {
-  return c.endsWith("H") || c.endsWith("D");
-}
-
+function isRedSuit(c) { return c.endsWith("H") || c.endsWith("D"); }
 function makeCardDiv(card) {
   const d = document.createElement("div");
   d.className = "cardUI" + (isRedSuit(card) ? " red" : "");
@@ -60,37 +67,88 @@ function makeCardDiv(card) {
   return d;
 }
 
-function showRoom(room) {
+function me() {
+  return room?.players?.find(p => p.id === myId) || null;
+}
+
+function playerNameBySeat(seat) {
+  const p = room.players.find(x => x.seat === seat);
+  return p ? p.name : "-";
+}
+
+function render() {
+  if (!room) return;
+
   lobbyCard.style.display = "none";
   tableWrap.style.display = "block";
 
   roomTitle.textContent = `Room: ${room.code}`;
   const amHost = room.hostId === myId;
-  hostTag.textContent = amHost ? "You are the host 👑" : "Waiting for host…";
+  hostTag.textContent = amHost ? "You are the host 👑" : "Host is another player";
 
-  // players
+  // info row
+  potEl.textContent = room.game.pot;
+  streetEl.textContent = room.game.street;
+  currentBetEl.textContent = room.game.currentBet;
+  toActEl.textContent = playerNameBySeat(room.game.toActSeat);
+
+  // players list with stacks + dealer marker
   playersEl.innerHTML = "";
-  room.players.forEach(p => {
-    const li = document.createElement("li");
-    li.textContent = p.id === myId ? `${p.name} (You)` : p.name;
-    playersEl.appendChild(li);
-  });
+  room.players
+    .slice()
+    .sort((a,b)=>a.seat-b.seat)
+    .forEach(p => {
+      const li = document.createElement("li");
+      const dealer = (p.seat === room.game.dealerSeat) ? " 🟡D" : "";
+      const you = (p.id === myId) ? " (You)" : "";
+      li.textContent = `${p.name}${you}${dealer} — ${p.stack}`;
+      playersEl.appendChild(li);
+    });
 
-  // host controls
-  hostControls.style.display = amHost ? "flex" : "none";
-
-  // community cards
+  // community
   communityEl.innerHTML = "";
   room.game.community.forEach(c => communityEl.appendChild(makeCardDiv(c)));
 
-  // my hole cards
+  // my hand
   myHandEl.innerHTML = "";
   if (room.game.started) {
     room.game.myHole.forEach(c => myHandEl.appendChild(makeCardDiv(c)));
   } else {
-    myHandEl.textContent = "(Start the game to get cards)";
+    myHandEl.textContent = "(Start game to get cards)";
+  }
+
+  // host controls
+  hostControls.style.display = amHost ? "flex" : "none";
+  startGameBtn.style.display = room.game.started ? "none" : "inline-block";
+  nextHandBtn.style.display = room.game.started ? "inline-block" : "none";
+
+  // actions: only show if game started and it's your turn and you're still in
+  const my = me();
+  const myTurn = my && room.game.toActSeat === my.seat && room.game.street !== "showdown";
+  actionsEl.style.display = myTurn ? "flex" : "none";
+
+  // set a default raiseTo suggestion
+  if (myTurn) {
+    const suggested = room.game.currentBet + 20;
+    raiseToEl.value = String(suggested);
+    noteEl.textContent = "Your turn.";
+  } else if (room.game.street === "showdown") {
+    noteEl.textContent = "Showdown! Host can click Next Hand.";
+  } else {
+    noteEl.textContent = "";
   }
 }
+
+function act(type, raiseTo) {
+  socket.emit("game:action", { type, raiseTo }, (res) => {
+    if (!res?.ok) alert(res?.error || "Action failed");
+  });
+}
+
+btnFold.addEventListener("click", () => act("fold"));
+btnCheck.addEventListener("click", () => act("check"));
+btnCall.addEventListener("click", () => act("call"));
+btnRaise.addEventListener("click", () => act("raise", Number(raiseToEl.value)));
 
 createBtn.addEventListener("click", () => {
   const name = (nameEl.value || "Player").trim();
@@ -102,10 +160,7 @@ createBtn.addEventListener("click", () => {
 joinBtn.addEventListener("click", () => {
   const name = (nameEl.value || "Player").trim();
   const code = (codeEl.value || "").trim().toUpperCase();
-  if (!code) {
-    statusEl.textContent = "⚠️ Enter a room code.";
-    return;
-  }
+  if (!code) return (statusEl.textContent = "⚠️ Enter a room code.");
   socket.emit("room:join", { code, name }, (res) => {
     if (!res?.ok) statusEl.textContent = "❌ " + (res?.error || "Join failed");
   });
@@ -113,13 +168,10 @@ joinBtn.addEventListener("click", () => {
 
 leaveBtn.addEventListener("click", () => {
   socket.emit("room:leave", () => {
-    currentRoom = null;
+    room = null;
     tableWrap.style.display = "none";
     lobbyCard.style.display = "block";
-    statusEl.textContent = "Left room. Create or join another.";
-    playersEl.innerHTML = "";
-    communityEl.innerHTML = "";
-    myHandEl.innerHTML = "";
+    statusEl.textContent = "Left room.";
     codeEl.value = "";
   });
 });
@@ -130,8 +182,8 @@ startGameBtn.addEventListener("click", () => {
   });
 });
 
-dealCommunityBtn.addEventListener("click", () => {
-  socket.emit("game:dealCommunity", (res) => {
-    if (!res?.ok) alert(res?.error || "Could not deal");
+nextHandBtn.addEventListener("click", () => {
+  socket.emit("game:nextHand", (res) => {
+    if (!res?.ok) alert(res?.error || "Could not start next hand");
   });
 });
