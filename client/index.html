@@ -8,7 +8,7 @@
 <body>
   <h1>Texas Hold'em</h1>
 
-  <div class="card">
+  <div class="card" id="lobbyCard">
     <div class="row">
       <input id="name" placeholder="Your name" maxlength="16" />
     </div>
@@ -25,20 +25,36 @@
     <div id="status" class="status">Connecting…</div>
   </div>
 
-  <div class="card" id="roomCard" style="display:none;">
-    <div class="row">
+  <div class="tableWrap" id="tableWrap" style="display:none;">
+    <div class="topBar">
       <div class="big" id="roomTitle"></div>
-    </div>
-    <div class="row">
       <div id="hostTag"></div>
+      <div class="spacer"></div>
+      <button id="leave">Leave</button>
     </div>
-    <div class="row">
-      <div class="label">Players</div>
-      <ul id="players"></ul>
+
+    <div class="pokerTable">
+      <div class="community" id="community"></div>
+
+      <div class="seats">
+        <div class="seatList">
+          <div class="label">Players</div>
+          <ul id="players"></ul>
+        </div>
+
+        <div class="handBox">
+          <div class="label">Your Hand</div>
+          <div class="hand" id="myHand"></div>
+
+          <div class="hostControls" id="hostControls" style="display:none;">
+            <button id="startGame">Start Game</button>
+            <button id="dealCommunity">Deal Flop/Turn/River</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="row">
-      <button id="leave">Leave Room</button>
-    </div>
+
+    <div class="hint">Tip: Host starts, then click Deal to reveal community cards.</div>
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
